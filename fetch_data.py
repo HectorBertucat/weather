@@ -11,6 +11,7 @@ END_DATE = "2024-05-15"
 TIMEZONE = "Europe/Paris"
 DATA_DIR = "weather_data"
 CITY_LIST_PATH = "cities.csv"
+OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -52,14 +53,17 @@ def get_weather_data(city_name):
     
     if os.path.exists(file_path):
         print(f"Loading existing data for {city_name}")
-        return pd.read_csv(file_path)
+        weather_df = pd.read_csv(file_path)
     else:
         print(f"Fetching new data for {city_name}")
         lat, lon = get_lat_lon(city_name)
         weather_data = fetch_weather_data(lat, lon, START_DATE, END_DATE, TIMEZONE)
         weather_df = process_data(weather_data)
         weather_df.to_csv(file_path, index=False)
-        return weather_df
+
+    # Ensure datetime column is in datetime format
+    weather_df["datetime"] = pd.to_datetime(weather_df["datetime"])
+    return weather_df
 
 def get_fetched_cities():
     files = os.listdir(DATA_DIR)

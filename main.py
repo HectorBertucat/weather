@@ -208,6 +208,9 @@ def update_output(city, rain_threshold, min_rainy_hours, selected_months, time_r
     except ValueError as e:
         return [html.P(str(e), className="text-danger")], {}, {}
 
+    # Ensure datetime column is in datetime format
+    weather_df["datetime"] = pd.to_datetime(weather_df["datetime"])
+
     # Filter data based on selected time range
     if time_range == 'working_hours':
         weather_df = weather_df[(weather_df['datetime'].dt.hour >= 9) & (weather_df['datetime'].dt.hour < 17)]
