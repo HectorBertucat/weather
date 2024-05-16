@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from dash import Dash
-from my_app import app  # Adjust this line to import your Dash app
+from main import app  # Adjust this line to import your Dash app
 
 load_dotenv()
 
