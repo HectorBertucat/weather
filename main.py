@@ -5,14 +5,22 @@ from scipy import stats
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dotenv import load_dotenv
 import os
-from fetch_data import get_weather_data
+from fetch_data import get_weather_data, get_fetched_cities
 
 load_dotenv()
 
-# Define analyze_rainy_days function here if not importing from another file
+# Load city list
+cities_df = pd.read_csv('cities.csv')
+
+# Capitalize the city labels
+cities_df['label'] = cities_df['label'].str.title()
+
+city_options = [{'label': city, 'value': city} for city in cities_df['label']]
+
+# Define analyze_rainy_days function
 def analyze_rainy_days(df, rain_threshold=0.1, min_rainy_hours=1, selected_months=None):
     if 'month' not in df.columns:
         df['month'] = pd.to_datetime(df['datetime']).dt.month
@@ -66,13 +74,6 @@ def analyze_rainy_days(df, rain_threshold=0.1, min_rainy_hours=1, selected_month
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.COSMO])
 server = app.server
 
-# City data
-cities = {
-    "Limoges": {"lat": 45.8333, "lon": 1.25},
-    "Paris": {"lat": 48.8566, "lon": 2.3522},
-    "Lyon": {"lat": 45.7640, "lon": 4.8357}
-}
-
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(html.H1("Rainy Day Analysis", className="text-center text-primary mb-4"), width=12)
@@ -84,12 +85,19 @@ app.layout = dbc.Container([
                     html.H5("City", className="card-title"),
                     dcc.Dropdown(
                         id='city-dropdown',
-                        options=[{'label': city, 'value': city} for city in cities.keys()],
-                        value='Limoges'
+                        options=city_options,
+                        placeholder='Enter city name',
+                        value=None,
+                        searchable=True,
+                        clearable=True,
+                        persistence=True,
+                        persistence_type='session'
                     )
                 ])
             ], className="mb-4")
-        ], width=6),
+        ], width=12)
+    ]),
+    dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
@@ -105,23 +113,22 @@ app.layout = dbc.Container([
                     )
                 ])
             ], className="mb-4")
-        ], width=3),
+        ], width=6),
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
                     html.H5("Minimum Rainy Hours", className="card-title"),
-                    dcc.Slider(
-                        id='min-rainy-hours-slider',
+                    dbc.Input(
+                        id='min-rainy-hours-input',
+                        type='number',
                         min=1,
                         max=24,
                         step=1,
                         value=1,
-                        marks={i: str(i) for i in range(1, 25)},
-                        tooltip={"placement": "bottom", "always_visible": True}
                     )
                 ])
             ], className="mb-4")
-        ], width=3),
+        ], width=6)
     ]),
     dbc.Row([
         dbc.Col([
@@ -136,30 +143,30 @@ app.layout = dbc.Container([
                     )
                 ])
             ], className="mb-4")
-        ], width=12),
+        ], width=12)
     ]),
     dbc.Row([
         dbc.Col(dbc.Card([
             dbc.CardBody([
                 html.H4("Summary Statistics", className="card-title"),
-                html.Div(id='summary-stats', className="card-text")
+                dcc.Loading(id='loading-summary', type='default', children=html.Div(id='summary-stats', className="card-text"))
             ])
         ], className="mb-4"), width=12)
     ]),
     dbc.Row([
         dbc.Col(dbc.Card([
             dbc.CardBody([
-                dcc.Graph(id='box-plot')
+                dcc.Loading(id='loading-box-plot', type='default', children=dcc.Graph(id='box-plot'))
             ])
         ], className="mb-4"), width=12)
     ]),
     dbc.Row([
         dbc.Col(dbc.Card([
             dbc.CardBody([
-                dcc.Graph(id='bootstrap-plot')
+                dcc.Loading(id='loading-bootstrap-plot', type='default', children=dcc.Graph(id='bootstrap-plot'))
             ])
         ], className="mb-4"), width=12)
-    ]),
+    ])
 ], fluid=True)
 
 @app.callback(
@@ -168,12 +175,18 @@ app.layout = dbc.Container([
      Output('bootstrap-plot', 'figure')],
     [Input('city-dropdown', 'value'),
      Input('rain-threshold-slider', 'value'),
-     Input('min-rainy-hours-slider', 'value'),
+     Input('min-rainy-hours-input', 'value'),
      Input('month-dropdown', 'value')]
 )
 def update_output(city, rain_threshold, min_rainy_hours, selected_months):
-    city_info = cities[city]
-    weather_df = get_weather_data(city, city_info['lat'], city_info['lon'])
+    if not city:
+        raise dash.exceptions.PreventUpdate
+
+    try:
+        weather_df = get_weather_data(city)
+    except ValueError as e:
+        return [html.P(str(e), className="text-danger")], {}, {}
+
     summary_stats, t_stat, p_value, fig_box, fig_bootstrap = analyze_rainy_days(
         weather_df, rain_threshold, min_rainy_hours, selected_months)
     
@@ -183,7 +196,7 @@ def update_output(city, rain_threshold, min_rainy_hours, selected_months):
         html.P(f"T-statistic: {t_stat:.2f}", className="mb-2"),
         html.P(f"P-value: {p_value:.2e}", className="mb-2")
     ]
-    
+
     return summary_text, fig_box, fig_bootstrap
 
 if __name__ == '__main__':
