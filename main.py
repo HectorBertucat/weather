@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from scipy import stats
 import dash
 import dash_bootstrap_components as dbc
@@ -8,7 +9,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 
 # Load the provided data
-file_path = 'slimoges_weather_data.csv'
+file_path = 'limoges_weather_data.csv'
 weather_df = pd.read_csv(file_path)
 
 # Convert 'datetime' column to datetime object
@@ -48,13 +49,17 @@ def analyze_rainy_days(df, rain_threshold=0.1, min_rainy_hours=1):
 
     fig_box = px.box(pd.DataFrame({'Weekday': weekday_frequencies, 'Weekend': weekend_frequencies}),
                      title='Frequency of Rainy Days: Weekends vs Weekdays',
-                     labels={'value': 'Rainy Day Frequency', 'variable': 'Day Type'})
+                     labels={'value': 'Rainy Day Frequency', 'variable': 'Day Type'},
+                     color_discrete_map={'Weekday': 'rgb(34, 163, 192)', 'Weekend': 'rgb(255, 99, 132)'},
+                     template='plotly_dark')
     fig_box.update_layout(xaxis_title='Day Type', yaxis_title='Rainy Day Frequency')
 
     bootstrap_df = pd.DataFrame({'Weekday': weekday_frequencies, 'Weekend': weekend_frequencies})
     fig_bootstrap = px.histogram(bootstrap_df, barmode='overlay',
                                  title='Bootstrapped Frequencies of Rainy Days: Weekends vs Weekdays',
-                                 labels={'value': 'Rainy Day Frequency', 'variable': 'Day Type'})
+                                 labels={'value': 'Rainy Day Frequency', 'variable': 'Day Type'},
+                                 color_discrete_sequence=['rgb(34, 163, 192)', 'rgb(255, 99, 132)'],
+                                 template='plotly_dark')
 
     return summary_stats, t_stat, p_value, fig_box, fig_bootstrap
 
@@ -75,9 +80,10 @@ app.layout = dbc.Container([
                 max=10,
                 step=0.1,
                 value=0.1,
-                marks={i: str(i) for i in range(0, 11)}
+                marks={i: str(i) for i in range(0, 11)},
+                tooltip={"placement": "bottom", "always_visible": True}
             )
-        ], width=6),
+        ], width=6, className="mb-4"),
         dbc.Col([
             dbc.Label("Minimum Rainy Hours:"),
             dcc.Slider(
@@ -86,12 +92,13 @@ app.layout = dbc.Container([
                 max=24,
                 step=1,
                 value=1,
-                marks={i: str(i) for i in range(1, 25)}
+                marks={i: str(i) for i in range(1, 25)},
+                tooltip={"placement": "bottom", "always_visible": True}
             )
-        ], width=6),
+        ], width=6, className="mb-4"),
     ]),
     dbc.Row([
-        dbc.Col(html.Div(id='summary-stats'), width=12, className="my-4")
+        dbc.Col(html.Div(id='summary-stats', className="alert alert-info"), width=12)
     ]),
     dbc.Row([
         dbc.Col(dcc.Graph(id='box-plot'), width=12, className="my-4")
@@ -113,11 +120,11 @@ def update_output(rain_threshold, min_rainy_hours):
         weather_df, rain_threshold, min_rainy_hours)
     
     summary_text = [
-        html.H3("Summary Statistics"),
-        html.P(f"Weekday Rainy Day Frequency: {summary_stats['Weekday'][0]:.2f}"),
-        html.P(f"Weekend Rainy Day Frequency: {summary_stats['Weekend'][0]:.2f}"),
-        html.P(f"T-statistic: {t_stat:.2f}"),
-        html.P(f"P-value: {p_value:.2e}")
+        html.H4("Summary Statistics"),
+        html.P(f"Weekday Rainy Day Frequency: {summary_stats['Weekday'][0]:.2f}", className="lead"),
+        html.P(f"Weekend Rainy Day Frequency: {summary_stats['Weekend'][0]:.2f}", className="lead"),
+        html.P(f"T-statistic: {t_stat:.2f}", className="lead"),
+        html.P(f"P-value: {p_value:.2e}", className="lead")
     ]
     
     return summary_text, fig_box, fig_bootstrap
