@@ -7,9 +7,14 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 from dash.dependencies import Input, Output
+from dotenv import load_dotenv
+
+load_dotenv()
+
+WEATHER_RAIN_DATA_PATH = os.getenv('WEATHER_RAIN_DATA_PATH')
 
 # Load the provided data
-file_path = 'limoges_weather_data.csv'
+file_path = WEATHER_RAIN_DATA_PATH + 'limoges_weather_data.csv'
 weather_df = pd.read_csv(file_path)
 
 # Convert 'datetime' column to datetime object
