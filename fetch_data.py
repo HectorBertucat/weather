@@ -1,62 +1,61 @@
+import os
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
 # Define constants
-CITY_NAME = "Limoges"
-LATITUDE = 45.8333
-LONGITUDE = 1.25
 START_DATE = "1980-01-01"
-END_DATE = "2024-05-15"
 TIMEZONE = "Europe/Paris"
+DATA_DIR = "weather_data"
 
-# Fetch weather data
-def fetch_weather_data(latitude, longitude, start_date, end_date, timezone):
-    url = f"https://archive-api.open-meteo.com/v1/archive?latitude={latitude}&longitude={longitude}&start_date={start_date}&end_date={end_date}&hourly=precipitation&timezone={timezone}"
-    response = requests.get(url)
-    data = response.json()
-    return data
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
-# Function to parse data and filter by time
-def parse_and_filter_data(data):
-    hourly_data = data['hourly']
-    dates = hourly_data['time']
-    precipitations = hourly_data['precipitation']
+def fetch_weather_data(lat, lon, start_date, end_date, timezone):
+    print(f"Fetching data for lat={lat}, lon={lon}")
 
-    # Convert to DataFrame
-    df = pd.DataFrame({
-        'datetime': pd.to_datetime(dates),
-        'precipitation': precipitations
-    })
+    base_url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start_date,
+        "end_date": end_date,
+        "hourly": "precipitation",
+        "timezone": timezone,
+    }
+    response = requests.get(base_url, params=params)
+    response.raise_for_status()  # Check for errors
+    return response.json()
 
-    # Filter data between 7 AM and 9 PM
-    df = df[(df['datetime'].dt.hour >= 7) & (df['datetime'].dt.hour < 21)]
-
+def process_data(data):
+    df = pd.DataFrame(data["hourly"])
+    df["datetime"] = pd.to_datetime(df["time"])
+    df["date"] = df["datetime"].dt.date
+    df["month"] = df["datetime"].dt.month
+    df["day_of_week"] = df["datetime"].dt.dayofweek
+    df["is_weekend"] = df["day_of_week"] >= 5
     return df
 
-# Fetch data
-weather_data = fetch_weather_data(LATITUDE, LONGITUDE, START_DATE, END_DATE, TIMEZONE)
-weather_df = parse_and_filter_data(weather_data)
+def get_weather_data(city_name, lat, lon):
+    file_path = os.path.join(DATA_DIR, f"{city_name.lower()}_weather_data.csv")
+    
+    if os.path.exists(file_path):
+        print(f"Loading existing data for {city_name}")
+        return pd.read_csv(file_path)
+    else:
+        print(f"Fetching new data for {city_name}")
 
-# Adding additional columns for analysis
-weather_df['date'] = weather_df['datetime'].dt.date
-weather_df['day_of_week'] = weather_df['datetime'].dt.dayofweek
-weather_df['is_weekend'] = weather_df['day_of_week'] >= 5
 
-# Save the data to a CSV file
-weather_df.to_csv('limoges_weather_data.csv', index=False)
+        # Set end date to today
+        end_date = datetime.now().strftime("%Y-%m-%d")
 
-# Group by date and check if it rained on weekends vs weekdays
-grouped_df = weather_df.groupby(['date', 'is_weekend']).agg({'precipitation': 'sum'}).reset_index()
+        weather_data = fetch_weather_data(lat, lon, START_DATE, end_date, TIMEZONE)
+        weather_df = process_data(weather_data)
+        weather_df.to_csv(file_path, index=False)
+        return weather_df
 
-# Separate data for weekends and weekdays
-weekend_rain = grouped_df[grouped_df['is_weekend'] == True]
-weekday_rain = grouped_df[grouped_df['is_weekend'] == False]
-
-# Average rain on weekends and weekdays
-avg_weekend_rain = weekend_rain['precipitation'].mean()
-avg_weekday_rain = weekday_rain['precipitation'].mean()
-
-# Print average precipitation
-print(f"Average weekend rain: {avg_weekend_rain} mm")
-print(f"Average weekday rain: {avg_weekday_rain} mm")
+# Example usage
+# city_name = "Limoges"
+# lat, lon = 45.8333, 1.25
+# weather_df = get_weather_data(city_name, lat, lon)
+# print(weather_df.head())
