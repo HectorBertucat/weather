@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from dotenv import load_dotenv
 import requests
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -11,7 +11,6 @@ END_DATE = "2024-05-15"
 TIMEZONE = "Europe/Paris"
 DATA_DIR = "weather_data"
 CITY_LIST_PATH = "cities.csv"
-OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -41,7 +40,7 @@ def process_data(data):
 
 def get_lat_lon(city_name):
     cities_df = pd.read_csv(CITY_LIST_PATH)
-    city_row = cities_df[cities_df['label'] == city_name]
+    city_row = cities_df[cities_df['label'].str.lower() == city_name.lower()]
     if city_row.empty:
         raise ValueError(f"City {city_name} not found.")
     lat = city_row.iloc[0]['latitude']
@@ -66,5 +65,3 @@ def get_fetched_cities():
     files = os.listdir(DATA_DIR)
     cities = [file.replace('_weather_data.csv', '').replace('_', ' ').title() for file in files if file.endswith('_weather_data.csv')]
     return cities
-
-# No need to download city list anymore

@@ -146,6 +146,26 @@ app.layout = dbc.Container([
         ], width=12)
     ]),
     dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H5("Select Time Range", className="card-title"),
+                    dcc.Dropdown(
+                        id='time-range-dropdown',
+                        options=[
+                            {'label': 'All Hours', 'value': 'all_hours'},
+                            {'label': 'Working Hours (9 AM - 5 PM)', 'value': 'working_hours'},
+                            {'label': 'All Day (8 AM - 8 PM)', 'value': 'all_day'},
+                            {'label': 'All Night (9 PM - 7 AM)', 'value': 'all_night'}
+                        ],
+                        value='all_hours',
+                        clearable=False
+                    )
+                ])
+            ], className="mb-4")
+        ], width=12)
+    ]),
+    dbc.Row([
         dbc.Col(dbc.Card([
             dbc.CardBody([
                 html.H4("Summary Statistics", className="card-title"),
@@ -176,9 +196,10 @@ app.layout = dbc.Container([
     [Input('city-dropdown', 'value'),
      Input('rain-threshold-slider', 'value'),
      Input('min-rainy-hours-input', 'value'),
-     Input('month-dropdown', 'value')]
+     Input('month-dropdown', 'value'),
+     Input('time-range-dropdown', 'value')]
 )
-def update_output(city, rain_threshold, min_rainy_hours, selected_months):
+def update_output(city, rain_threshold, min_rainy_hours, selected_months, time_range):
     if not city:
         raise dash.exceptions.PreventUpdate
 
@@ -187,6 +208,14 @@ def update_output(city, rain_threshold, min_rainy_hours, selected_months):
     except ValueError as e:
         return [html.P(str(e), className="text-danger")], {}, {}
 
+    # Filter data based on selected time range
+    if time_range == 'working_hours':
+        weather_df = weather_df[(weather_df['datetime'].dt.hour >= 9) & (weather_df['datetime'].dt.hour < 17)]
+    elif time_range == 'all_day':
+        weather_df = weather_df[(weather_df['datetime'].dt.hour >= 8) & (weather_df['datetime'].dt.hour < 20)]
+    elif time_range == 'all_night':
+        weather_df = weather_df[(weather_df['datetime'].dt.hour >= 21) | (weather_df['datetime'].dt.hour < 7)]
+    
     summary_stats, t_stat, p_value, fig_box, fig_bootstrap = analyze_rainy_days(
         weather_df, rain_threshold, min_rainy_hours, selected_months)
     
