@@ -1,0 +1,8 @@
+# requirements for the project
+pandas
+numpy
+plotly
+dash
+scipy
+python-dotenv
+dash-bootstrap-components
