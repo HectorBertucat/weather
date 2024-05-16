@@ -2,3 +2,8 @@
 limoges_weather_data_save.csv
 .vscode/settings.json
 .env
+public/
+tmp/
+venv/
+__pycache__/
+passenger_wsgi.py
